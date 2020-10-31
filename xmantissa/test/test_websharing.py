@@ -117,7 +117,7 @@ class WebSharingTestCase(TestCase):
         self.failUnless(isinstance(linkURL, url.URL),
                         "linkTo should return a nevow.url.URL, not %r" %
                         (type(linkURL)))
-        self.assertEquals(str(linkURL), '/users/right/loginsystem')
+        self.assertEquals(str(linkURL), '/users/right%40host/loginsystem')
 
 
     def test_linkToProxy(self):
@@ -126,8 +126,11 @@ class WebSharingTestCase(TestCase):
         link to.
         """
         self._verifyPath(
-            websharing.linkTo(sharing.getShare(self.s, sharing.getEveryoneRole(
-                        self.s), u'loginsystem')))
+            websharing.linkTo(
+                sharing.getShare(
+                    self.s,
+                    sharing.getEveryoneRole(self.s),
+                    u'loginsystem')))
 
 
     def test_shareURLInjectsShareID(self):
@@ -191,9 +194,11 @@ class WebSharingTestCase(TestCase):
         share = sharing.getShare(
             self.s, sharing.getEveryoneRole(self.s), u'share-id')
         url = websharing.linkTo(share)
-        self.assertEqual(str(url), '/users/right/')
+        self.assertEqual(str(url), '/users/right%40host/')
         # and if we call child()
-        self.assertEqual(str(url.child('child')), '/users/right/share-id/child')
+        self.assertEqual(
+            str(url.child('child')),
+            '/users/right%40host/share-id/child')
 
 
     def test_defaultShareIDInteractionNoMatch(self):
@@ -207,7 +212,7 @@ class WebSharingTestCase(TestCase):
         share = sharing.getShare(
             self.s, sharing.getEveryoneRole(self.s), u'not-the-share-id')
         url = websharing.linkTo(share)
-        self.assertEqual(str(url), '/users/right/not-the-share-id')
+        self.assertEqual(str(url), '/users/right%40host/not-the-share-id')
 
 
     def test_appStoreLinkTo(self):
@@ -265,6 +270,19 @@ class UserIdentificationTestCase(_UserIdentificationMixin, TestCase):
     """
     Tests for L{xmantissa.websharing._storeFromUsername}
     """
+    def test_fullyQualifiedUsername(self):
+        """
+        L{xmantissa.websharing._storeFromUsername} will parse a fully-qualified
+        username and use the domain to perform a more specific query.
+        """
+        self.signup.createUser(
+            u'', u'username', u'localhost', u'', u'username@internet')
+        self.assertIdentical(
+            websharing._storeFromUsername(self.siteStore, u'username@localhost'),
+            self.loginSystem.accountByAddress(
+                u'username', u'localhost').avatars.open())
+
+
     def test_sameLocalpartAndUsername(self):
         """
         Test that L{xmantissa.websharing._storeFromUsername} doesn't get
@@ -405,6 +423,7 @@ class UserIndexPageTestCase(_UserIdentificationMixin, TestCase):
     """
     username = u'alice'
     domain = u'example.com'
+    fqUsername = u'{}%40{}'.format(username, domain)
     shareID = u'ashare'
 
     def setUp(self):
@@ -460,10 +479,11 @@ class UserIndexPageTestCase(_UserIdentificationMixin, TestCase):
     def test_linkToMatchesUserURL(self):
         """
         Test that L{xmantissa.websharing.linkTo} generates a URL using the
-        localpart of the account's internal L{axiom.userbase.LoginMethod}
+        localpart and domain of the account's internal
+        L{axiom.userbase.LoginMethod}
         """
         pathString = str(websharing.linkTo(self.share))
-        expected = u'/users/%s/%s' % (self.username, self.shareID)
+        expected = u'/users/%s/%s' % (self.fqUsername, self.shareID)
         self.assertEqual(pathString, expected.encode('ascii'))
 
 

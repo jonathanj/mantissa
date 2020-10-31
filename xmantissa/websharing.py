@@ -193,7 +193,10 @@ def linkTo(sharedProxyOrItem):
     else:
         for lm in userbase.getLoginMethods(userStore):
             if lm.internal:
-                path = ['users', lm.localpart.encode('ascii')]
+                username = '{}@{}'.format(
+                    lm.localpart.encode('ascii'),
+                    lm.domain.encode('ascii'))
+                path = ['users', username]
                 break
         else:
             raise RuntimeError(
@@ -216,16 +219,21 @@ def _storeFromUsername(store, username):
     @param store: site-store
     @type store: L{axiom.store.Store}
 
-    @param username: the name a user signed up with
+    @param username: the name a user signed up with, may be fully qualified
     @type username: C{unicode}
 
     @rtype: L{axiom.store.Store} or C{None}
     """
+    parts = username.split(u'@', 1)
+    criteria = [
+        userbase.LoginMethod.localpart == parts[0],
+        userbase.LoginMethod.internal == True]
+    if len(parts) == 2:
+        criteria.append(userbase.LoginMethod.domain == parts[1])
+
     lm = store.findUnique(
             userbase.LoginMethod,
-            attributes.AND(
-                userbase.LoginMethod.localpart == username,
-                userbase.LoginMethod.internal == True),
+            attributes.AND(*criteria),
             default=None)
     if lm is not None:
         return lm.account.avatars.open()
